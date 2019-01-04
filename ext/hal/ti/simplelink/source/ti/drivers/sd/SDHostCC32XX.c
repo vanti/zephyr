@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Texas Instruments Incorporated
+ * Copyright (c) 2016-2018, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,6 +58,7 @@
 #include <ti/devices/cc32xx/inc/hw_ocp_shared.h>
 #include <ti/devices/cc32xx/inc/hw_ints.h>
 #include <ti/devices/cc32xx/inc/hw_mmchs.h>
+#include <ti/devices/cc32xx/inc/hw_udma.h>
 #include <ti/devices/cc32xx/driverlib/rom.h>
 #include <ti/devices/cc32xx/driverlib/rom_map.h>
 #include <ti/devices/cc32xx/driverlib/pin.h>
@@ -1037,6 +1038,18 @@ static void initHw(SD_Handle handle)
     MAP_SDHostIntClear(hwAttrs->baseAddr, SDHOST_INT_CC | SDHOST_INT_TC |
         DATAERROR | CMDERROR | SDHOST_INT_DMAWR | SDHOST_INT_DMARD |
         SDHOST_INT_BRR | SDHOST_INT_BWR);
+
+    /*
+     * DMA channels 23 and 24 are connected to the SD peripheral by default.
+     * If someone hasn't remapped them to something else already, we remap
+     * them to SW.
+     */
+    if (!(HWREG(UDMA_BASE + UDMA_O_CHMAP2) & UDMA_CHMAP2_CH23SEL_M)) {
+        MAP_uDMAChannelAssign(UDMA_CH23_SW);
+    }
+    if (!(HWREG(UDMA_BASE + UDMA_O_CHMAP3) & UDMA_CHMAP3_CH24SEL_M)) {
+        MAP_uDMAChannelAssign(UDMA_CH24_SW);
+    }
 
     /* Configure DMA for TX and RX */
     MAP_uDMAChannelAssign(hwAttrs->txChIdx);

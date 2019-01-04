@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Texas Instruments Incorporated
+ * Copyright (c) 2015-2018, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/** ============================================================================
+/*!****************************************************************************
  *  @file       PWM.h
  *  @brief      PWM driver interface
  *
@@ -67,6 +67,7 @@
  *  @code
  *    PWM_Handle pwm;
  *    PWM_Params pwmParams;
+ *    uint32_t   dutyValue;
  *
  *    // Initialize the PWM driver.
  *    PWM_init();
@@ -89,8 +90,8 @@
  *
  *    PWM_start(pwm);                          // start PWM with 0% duty cycle
  *
- *    PWM_setDuty(pwm,
- *         (PWM_DUTY_FRACTION_MAX / 2));       // set duty cycle to 50%
+ *    dutyValue = (uint32_t) (((uint64_t) PWM_DUTY_FRACTION_MAX * 37) / 100);
+ *    PWM_setDuty(pwm, dutyValue);  // set duty cycle to 37%
  *  @endcode
  *
  *  Details for the example code above are described in the following
@@ -185,8 +186,13 @@
  *  by the application will be #PWM_setDuty() to control the duty cycle of a
  *  PWM pin:
  *
+ *  Below demonstrates setting the duty cycle to 45%.
+ *
  *  @code
- *     PWM_setDuty(pwm, PWM_DUTY_FRACTION_MAX / 2); // Set 50% duty cycle
+ *     uint32_t dutyCycle;
+ *
+ *     dutyCycle = (uint32_t) (((uint64_t) PWM_DUTY_FRACTION_MAX * 45) / 100);
+ *     PWM_setDuty(pwm, dutyCycle);
  *  @endcode
  *
  *  # Implementation #
@@ -210,7 +216,7 @@
  *    #include <ti/drivers/pwm/PWMTimerMSP432.h>
  *    @endcode
  *
- *  ============================================================================
+ *****************************************************************************
  */
 
 #ifndef ti_drivers_PWM__include
@@ -302,10 +308,10 @@ extern "C" {
  *  implementation if using PWM_PERIOD_COUNTS (raw PWM/Timer counts).
  */
 typedef enum PWM_Period_Units_ {
-    PWM_PERIOD_US,    /* Period in microseconds */
-    PWM_PERIOD_HZ,    /* Period in (reciprocal) Hertz
+    PWM_PERIOD_US,    /*!< Period in microseconds */
+    PWM_PERIOD_HZ,    /*!< Period in (reciprocal) Hertz
                          (for example 2MHz = 0.5us period) */
-    PWM_PERIOD_COUNTS /* Period in timer counts */
+    PWM_PERIOD_COUNTS /*!< Period in timer counts */
 } PWM_Period_Units;
 
 /*!
@@ -313,9 +319,12 @@ typedef enum PWM_Period_Units_ {
  *  implementation if using PWM_DUTY_COUNTS (raw PWM/Timer counts).
  */
 typedef enum PWM_Duty_Units_ {
-    PWM_DUTY_US,       /* Duty cycle in microseconds */
-    PWM_DUTY_FRACTION, /* Duty as a fractional part of PWM_DUTY_FRACTION_MAX */
-    PWM_DUTY_COUNTS    /* Duty in timer counts  */
+    PWM_DUTY_US,       /*!< Duty cycle in microseconds */
+    PWM_DUTY_FRACTION, /*!< Duty as a fractional part of #PWM_DUTY_FRACTION_MAX.
+                        *   A duty cycle value of 0 will yield a 0% duty cycle
+                        *   while a duty cycle value of #PWM_DUTY_FRACTION_MAX
+                        *   will yield a duty cycle value of 100%. */
+    PWM_DUTY_COUNTS    /*!< Duty in timer counts  */
 } PWM_Duty_Units;
 
 /*!

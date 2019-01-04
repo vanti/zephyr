@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Texas Instruments Incorporated
+ * Copyright (c) 2016-2018, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@
  *
  *  @brief      uDMA driver implementation for CC32XX.
  *
- *  This driver is intended for use only by TI-RTOS drivers that use the uDMA
+ *  This driver is intended for use only by drivers that use the uDMA
  *  peripheral (e.g., SPI and I2S).  This driver is mainly used for Power
  *  management of the UDMA peripheral.
  *
