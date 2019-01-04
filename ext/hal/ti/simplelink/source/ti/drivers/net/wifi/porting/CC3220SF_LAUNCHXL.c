@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Texas Instruments Incorporated
+ * Copyright (c) 2017-2018, Texas Instruments Incorporated
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -18,6 +18,7 @@
 
 typedef enum CC3220SF_LAUNCHXL_SPIName {
     CC3220SF_LAUNCHXL_SPI0 = 0,
+    CC3220SF_LAUNCHXL_SPI1 = 1,
     CC3220SF_LAUNCHXL_SPICOUNT
 } CC3220SF_LAUNCHXL_SPIName;
 
@@ -32,31 +33,55 @@ uint32_t spiCC3220SDMAscratchBuf[CC3220SF_LAUNCHXL_SPICOUNT];
 const SPICC32XXDMA_HWAttrsV1 spiCC3220SDMAHWAttrs[CC3220SF_LAUNCHXL_SPICOUNT] = {
     /* index 0 is reserved for LSPI that links to the NWP */
     {
-	.baseAddr = LSPI_BASE,
-	.intNum = INT_LSPI,
-	.intPriority = (~0),
-	.spiPRCM = PRCM_LSPI,
-	.csControl = SPI_SW_CTRL_CS,
-	.csPolarity = SPI_CS_ACTIVEHIGH,
-	.pinMode = SPI_4PIN_MODE,
-	.turboMode = SPI_TURBO_OFF,
-	.scratchBufPtr = &spiCC3220SDMAscratchBuf[CC3220SF_LAUNCHXL_SPI0],
-	.defaultTxBufValue = 0,
-	.rxChannelIndex = UDMA_CH12_LSPI_RX,
-	.txChannelIndex = UDMA_CH13_LSPI_TX,
-	.minDmaTransferSize = 100,
-	.mosiPin = SPICC32XXDMA_PIN_NO_CONFIG,
-	.misoPin = SPICC32XXDMA_PIN_NO_CONFIG,
-	.clkPin = SPICC32XXDMA_PIN_NO_CONFIG,
-	.csPin = SPICC32XXDMA_PIN_NO_CONFIG
+        .baseAddr = LSPI_BASE,
+        .intNum = INT_LSPI,
+        .intPriority = (~0),
+        .spiPRCM = PRCM_LSPI,
+        .csControl = SPI_SW_CTRL_CS,
+        .csPolarity = SPI_CS_ACTIVEHIGH,
+        .pinMode = SPI_4PIN_MODE,
+        .turboMode = SPI_TURBO_OFF,
+        .scratchBufPtr = &spiCC3220SDMAscratchBuf[CC3220SF_LAUNCHXL_SPI0],
+        .defaultTxBufValue = 0,
+        .rxChannelIndex = UDMA_CH12_LSPI_RX,
+        .txChannelIndex = UDMA_CH13_LSPI_TX,
+        .minDmaTransferSize = 100,
+        .mosiPin = SPICC32XXDMA_PIN_NO_CONFIG,
+        .misoPin = SPICC32XXDMA_PIN_NO_CONFIG,
+        .clkPin = SPICC32XXDMA_PIN_NO_CONFIG,
+        .csPin = SPICC32XXDMA_PIN_NO_CONFIG
+    },
+    {
+        .baseAddr = GSPI_BASE,
+        .intNum = INT_GSPI,
+        .intPriority = (~0),
+        .spiPRCM = PRCM_GSPI,
+        .csControl = SPI_HW_CTRL_CS,
+        .csPolarity = SPI_CS_ACTIVELOW,
+        .pinMode = SPI_4PIN_MODE,
+        .turboMode = SPI_TURBO_OFF,
+        .scratchBufPtr = &spiCC3220SDMAscratchBuf[CC3220SF_LAUNCHXL_SPI1],
+        .defaultTxBufValue = 0,
+        .rxChannelIndex = UDMA_CH6_GSPI_RX,
+        .txChannelIndex = UDMA_CH7_GSPI_TX,
+        .minDmaTransferSize = 10,
+        .mosiPin = SPICC32XXDMA_PIN_07_MOSI,
+        .misoPin = SPICC32XXDMA_PIN_06_MISO,
+        .clkPin = SPICC32XXDMA_PIN_05_CLK,
+        .csPin = SPICC32XXDMA_PIN_08_CS
     }
 };
 
 const SPI_Config SPI_config[CC3220SF_LAUNCHXL_SPICOUNT] = {
     {
-	.fxnTablePtr = &SPICC32XXDMA_fxnTable,
-	.object = &spiCC3220SDMAObjects[CC3220SF_LAUNCHXL_SPI0],
-	.hwAttrs = &spiCC3220SDMAHWAttrs[CC3220SF_LAUNCHXL_SPI0]
+        .fxnTablePtr = &SPICC32XXDMA_fxnTable,
+        .object = &spiCC3220SDMAObjects[CC3220SF_LAUNCHXL_SPI0],
+        .hwAttrs = &spiCC3220SDMAHWAttrs[CC3220SF_LAUNCHXL_SPI0]
+    },
+    {
+        .fxnTablePtr = &SPICC32XXDMA_fxnTable,
+        .object = &spiCC3220SDMAObjects[CC3220SF_LAUNCHXL_SPI1],
+        .hwAttrs = &spiCC3220SDMAHWAttrs[CC3220SF_LAUNCHXL_SPI1]
     }
 };
 
