@@ -36,7 +36,7 @@ static bool connected;
 
 #include "test_certs.h"
 
-#define TLS_SNI_HOSTNAME "localhost"
+#define TLS_SNI_HOSTNAME "test.mosquitto.org" //"192.168.1.102"
 #define APP_CA_CERT_TAG 1
 #define APP_PSK_TAG 2
 

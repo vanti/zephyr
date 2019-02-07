@@ -13,10 +13,10 @@
  */
 
 #if defined(CONFIG_TLS_CREDENTIAL_FILENAMES)
-static const unsigned char ca_certificate[] = "ca_cert.der";
+static const unsigned char ca_certificate[] = "mosquitto.org.der";
 #else
 static const unsigned char ca_certificate[] = {
-#include "ca_cert.der.inc"
+#include "mosquitto.org.der.inc"
 };
 #endif
 

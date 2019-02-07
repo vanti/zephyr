@@ -21,7 +21,9 @@
 #define SERVER_ADDR		"2001:db8::2"
 #else
 #define ZEPHYR_ADDR		"192.168.1.101"
-#define SERVER_ADDR		"192.168.1.10"
+//#define SERVER_ADDR             "192.168.1.102"
+//#define SERVER_ADDR		"198.41.30.241" //m2m.eclipse.org
+#define SERVER_ADDR           "37.187.106.16" //test.mosquitto.org
 #endif
 #endif
 
@@ -31,13 +33,13 @@
 #define SERVER_PORT		1883
 #endif
 
-#define APP_SLEEP_MSECS		500
+#define APP_SLEEP_MSECS		1000
 #define APP_TX_RX_TIMEOUT       300
 #define APP_NET_INIT_TIMEOUT    10000
 
 #define APP_CONNECT_TRIES	10
 
-#define APP_MAX_ITERATIONS	100
+#define APP_MAX_ITERATIONS	5
 
 #define APP_MQTT_BUFFER_SIZE	128
 
