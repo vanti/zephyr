@@ -8,6 +8,7 @@
 LOG_MODULE_REGISTER(net_mqtt_publisher_sample, LOG_LEVEL_DBG);
 
 #include <zephyr.h>
+#include <gpio.h>
 #include <net/socket.h>
 #include <net/mqtt.h>
 
@@ -16,6 +17,57 @@ LOG_MODULE_REGISTER(net_mqtt_publisher_sample, LOG_LEVEL_DBG);
 #include <errno.h>
 
 #include "config.h"
+
+/* MQTT TOPIC */
+#define TOPIC "ew_demo"
+
+/* LED stuff */
+#define PORT0  LED0_GPIO_CONTROLLER
+#define PORT1  LED1_GPIO_CONTROLLER
+
+#define LED0 LED0_GPIO_PIN
+#define LED1 LED1_GPIO_PIN
+
+/*Button stuff */
+/* change this to use another GPIO port */
+#ifndef SW0_GPIO_CONTROLLER
+#ifdef SW0_GPIO_NAME
+#define SW0_GPIO_CONTROLLER SW0_GPIO_NAME
+#else
+#error SW0_GPIO_NAME or SW0_GPIO_CONTROLLER needs to be set in board.h
+#endif
+#endif
+#define PORT    SW0_GPIO_CONTROLLER
+
+/* change this to use another GPIO pin */
+#ifdef SW0_GPIO_PIN
+#define PIN     SW0_GPIO_PIN
+#else
+#error SW0_GPIO_PIN needs to be set in board.h
+#endif
+
+/* change to use another GPIO pin interrupt config */
+#ifdef SW0_GPIO_FLAGS
+
+#define EDGE    (SW0_GPIO_FLAGS | GPIO_INT_EDGE)
+#else
+/*
+ * If SW0_GPIO_FLAGS not defined used default EDGE value.
+ * Change this to use a different interrupt trigger
+ */
+#define EDGE    (GPIO_INT_EDGE | GPIO_INT_ACTIVE_LOW)
+#endif
+
+/* change this to enable pull-up/pull-down */
+#ifndef SW0_GPIO_FLAGS
+#ifdef SW0_GPIO_PIN_PUD
+#define SW0_GPIO_FLAGS SW0_GPIO_PIN_PUD
+#else
+#define SW0_GPIO_FLAGS 0
+#endif
+#endif
+
+#define PULL_UP SW0_GPIO_FLAGS
 
 /* Buffers for MQTT client. */
 static u8_t rx_buffer[APP_MQTT_BUFFER_SIZE];
@@ -31,6 +83,15 @@ static struct pollfd fds[1];
 static int nfds;
 
 static bool connected;
+
+/* Maximum size of incoming data */
+#define MAX_PAYLOAD 1024
+static u8_t payload[MAX_PAYLOAD];
+
+/* prototypes */
+static void publisher(void);
+static void wait(int timeout);
+static char *get_mqtt_topic(void);
 
 #if defined(CONFIG_MQTT_LIB_TLS)
 
@@ -48,6 +109,51 @@ static sec_tag_t m_sec_tags[] = {
 		APP_PSK_TAG,
 #endif
 };
+
+static struct device *gpio0, *gpio1;
+int led_cnt = 0;
+
+
+//K_SEM_DEFINE(sem_publish, 0, 1)
+//static struct k_sem sem_publish;
+static int buttonPressed = 0;
+
+void button_pressed(struct device *gpiob, struct gpio_callback *cb,
+                    u32_t pins)
+{
+        printk("Button pressed at %d\n", k_cycle_get_32());
+	//k_sem_give(&sem_publish);
+	buttonPressed = 1;
+}
+
+static int app_subscribe(void)
+{
+        int rc;
+        struct mqtt_topic topic;
+        struct mqtt_subscription_list sub;
+
+        topic.topic.utf8 = "sensors"; //get_mqtt_topic();
+        topic.topic.size = strlen(topic.topic.utf8);
+        topic.qos = MQTT_QOS_1_AT_LEAST_ONCE;
+        sub.list = &topic;
+        sub.list_count = 1;
+        sub.message_id = sys_rand32_get();
+
+        rc = mqtt_subscribe(&client_ctx, &sub);
+        if (rc != 0) {
+                return -1;
+        }
+
+        wait(APP_SLEEP_MSECS);
+        rc = mqtt_input(&client_ctx);
+		if (rc != 0) {
+			return -1;
+		}
+
+        return 0;
+}
+
+static struct gpio_callback gpio_cb;
 
 static int tls_init(void)
 {
@@ -111,6 +217,44 @@ static void wait(int timeout)
 	}
 }
 
+
+void publish_handler(struct mqtt_client *const client,
+		    const struct mqtt_evt *evt)
+{
+	int rc;
+	u8_t buf[16];
+	u32_t read = 0U;
+
+	printk("message received. Size=%d\n",
+		evt->param.publish.message.payload.len);
+
+	if (evt->result != 0) {
+		printk("MQTT PUBLISH error: %d\n", evt->result);
+		goto error;
+	}
+
+	while (read != evt->param.publish.message.payload.len) {
+		wait(APP_SLEEP_MSECS);
+		rc = mqtt_read_publish_payload(client, buf, sizeof(buf));
+		if (rc <= 0 && rc != -EAGAIN) {
+			printk("Failed to receive payload, err: %d\n", -rc);
+			goto error;
+		}
+
+		if (MAX_PAYLOAD < read + rc) {
+			printk("Too much data received!\n");
+			goto error;
+		}
+		
+		read += rc;
+	}
+
+	gpio_pin_write(gpio1, LED1, (++led_cnt) % 2);
+
+error:
+	return;
+}
+
 void mqtt_evt_handler(struct mqtt_client *const client,
 		      const struct mqtt_evt *evt)
 {
@@ -134,6 +278,11 @@ void mqtt_evt_handler(struct mqtt_client *const client,
 
 		connected = false;
 		clear_fds();
+
+		break;
+
+	case MQTT_EVT_PUBLISH:
+		publish_handler(client, evt);
 
 		break;
 
@@ -179,7 +328,33 @@ void mqtt_evt_handler(struct mqtt_client *const client,
 
 		break;
 
+	case MQTT_EVT_SUBACK:
+		if (evt->result != 0) {
+			printk("MQTT SUBACK error %d\n", evt->result);
+			break;
+		}
+
+
+		printk("[%s:%d] items: %d packet id: %u\n", __func__,
+			 __LINE__, evt->param.suback.return_codes.len,
+			 evt->param.suback.message_id);
+
+
+		break;
+
+	case MQTT_EVT_UNSUBACK:
+		if (evt->result != 0) {
+			printk("MQTT UNSUBACK error %d\n", evt->result);
+			break;
+		}
+
+		printk("[%s:%d] packet id: %u\n", __func__, __LINE__,
+			 evt->param.unsuback.message_id);
+
+		break;
+
 	default:
+		printk("[%s:%d] Invalid MQTT packet\n", __func__, __LINE__);
 		break;
 	}
 }
@@ -206,7 +381,7 @@ static char *get_mqtt_topic(void)
 	return "iot-2/type/"BLUEMIX_DEVTYPE"/id/"BLUEMIX_DEVID
 	       "/evt/"BLUEMIX_EVENT"/fmt/"BLUEMIX_FORMAT;
 #else
-	return "sensors";
+	return TOPIC;
 #endif
 }
 
@@ -360,13 +535,8 @@ static void publisher(void)
 {
 	int i, rc;
 
-	printk("attempting to connect: ");
-	rc = try_to_connect(&client_ctx);
-	PRINT_RESULT("try_to_connect", rc);
-	SUCCESS_OR_EXIT(rc);
-
-	i = 0;
-	while (i++ < APP_MAX_ITERATIONS && connected) {
+	/* TODO: fix this crappy code */
+	while(1) {
 		rc = mqtt_ping(&client_ctx);
 		PRINT_RESULT("mqtt_ping", rc);
 		SUCCESS_OR_BREAK(rc);
@@ -374,46 +544,66 @@ static void publisher(void)
 		rc = process_mqtt_and_sleep(&client_ctx, APP_SLEEP_MSECS);
 		SUCCESS_OR_BREAK(rc);
 
-		rc = publish(&client_ctx, MQTT_QOS_0_AT_MOST_ONCE);
-		PRINT_RESULT("mqtt_publish", rc);
-		SUCCESS_OR_BREAK(rc);
+		if (buttonPressed)
+		{
+			rc = publish(&client_ctx, MQTT_QOS_0_AT_MOST_ONCE);
+			PRINT_RESULT("mqtt_publish", rc);
+			buttonPressed = 0;
+			SUCCESS_OR_BREAK(rc);
+		}
 
 		rc = process_mqtt_and_sleep(&client_ctx, APP_SLEEP_MSECS);
 		SUCCESS_OR_BREAK(rc);
 
-		rc = publish(&client_ctx, MQTT_QOS_1_AT_LEAST_ONCE);
-		PRINT_RESULT("mqtt_publish", rc);
-		SUCCESS_OR_BREAK(rc);
-
-		rc = process_mqtt_and_sleep(&client_ctx, APP_SLEEP_MSECS);
-		SUCCESS_OR_BREAK(rc);
-
-		rc = publish(&client_ctx, MQTT_QOS_2_EXACTLY_ONCE);
-		PRINT_RESULT("mqtt_publish", rc);
-		SUCCESS_OR_BREAK(rc);
-
-		rc = process_mqtt_and_sleep(&client_ctx, APP_SLEEP_MSECS);
-		SUCCESS_OR_BREAK(rc);
 	}
 
-	rc = mqtt_disconnect(&client_ctx);
-	PRINT_RESULT("mqtt_disconnect", rc);
-
-	wait(APP_SLEEP_MSECS);
-	rc = mqtt_input(&client_ctx);
-	PRINT_RESULT("mqtt_input", rc);
-
-	printk("\nBye!\n");
 }
 
 void main(void)
 {
+        struct device *gpiob;
+
+	/* Init LEDs */
+        gpio0 = device_get_binding(PORT0);
+        gpio1 = device_get_binding(PORT1);
+
+        gpio_pin_configure(gpio0, LED0, GPIO_DIR_OUT);
+        gpio_pin_configure(gpio1, LED1, GPIO_DIR_OUT);
+
+        gpio_pin_write(gpio0, LED0, 0);
+	//gpio_pin_write(gpio1, LED1, (++led_cnt) % 2);
+
+        printk("Press the button on the board to light up the other's LED\n");
+        gpiob = device_get_binding(PORT);
+        if (!gpiob) {
+                printk("error\n");
+                return;
+        }
+
+        gpio_pin_configure(gpiob, PIN,
+                           GPIO_DIR_IN | GPIO_INT |  PULL_UP | EDGE);
+
+        gpio_init_callback(&gpio_cb, button_pressed, BIT(PIN));
+
+        gpio_add_callback(gpiob, &gpio_cb);
+        gpio_pin_enable_callback(gpiob, PIN);
+
+
 #if defined(CONFIG_MQTT_LIB_TLS)
 	int rc;
 
 	rc = tls_init();
 	PRINT_RESULT("tls_init", rc);
 #endif
+
+	printk("attempting to connect: ");
+	rc = try_to_connect(&client_ctx);
+	PRINT_RESULT("try_to_connect", rc);
+	SUCCESS_OR_EXIT(rc);
+
+	rc = app_subscribe();
+	PRINT_RESULT("app_subscribe", rc);
+	SUCCESS_OR_EXIT(rc);
 
 	while (1) {
 		publisher();
