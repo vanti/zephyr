@@ -23,7 +23,9 @@
 #define ZEPHYR_ADDR		"192.168.1.101"
 //#define SERVER_ADDR             "192.168.1.102"
 //#define SERVER_ADDR		"198.41.30.241" //m2m.eclipse.org
-#define SERVER_ADDR           "37.187.106.16" //test.mosquitto.org
+//#define SERVER_ADDR           "37.187.106.16" //test.mosquitto.org
+//#define SERVER_ADDR           "184.172.124.189" //quickstart.messaging.internetofthings.ibmcloud.com
+#define SERVER_ADDR            "169.45.2.20" //0o2swt.messaging.internetofthings.ibmcloud.com
 #endif
 #endif
 
@@ -43,10 +45,16 @@
 
 #define APP_MQTT_BUFFER_SIZE	128
 
-#define MQTT_CLIENTID		"zephyr_publisher"
+#define USER1
+
+#ifdef USER1
+#define MQTT_CLIENTID "d:0o2swt:ti-simplelink:0800285b589b"
+#else
+#define MQTT_CLIENTID "d:0o2swt:ti-simplelink:9884e3f6064c"
+#endif
 
 /* Set the following to 1 to enable the Bluemix topic format */
-#define APP_BLUEMIX_TOPIC	0
+#define APP_BLUEMIX_TOPIC	1
 
 /* These are the parameters for the Bluemix topic format */
 #if APP_BLUEMIX_TOPIC

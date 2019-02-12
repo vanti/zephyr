@@ -20,6 +20,10 @@ LOG_MODULE_REGISTER(net_mqtt_publisher_sample, LOG_LEVEL_DBG);
 
 /* MQTT TOPIC */
 #define TOPIC "ew_demo"
+#define USERNAME        "use-token-auth"
+#define USERNAME_LEN    14
+#define PASSWORD        "qwert123"
+#define PASSWORD_LEN    8
 
 /* LED stuff */
 #define PORT0  LED0_GPIO_CONTROLLER
@@ -91,27 +95,18 @@ static u8_t payload[MAX_PAYLOAD];
 /* prototypes */
 static void publisher(void);
 static void wait(int timeout);
-static char *get_mqtt_topic(void);
-
-#if defined(CONFIG_MQTT_LIB_TLS)
-
-#include "test_certs.h"
-
-#define TLS_SNI_HOSTNAME "test.mosquitto.org" //"192.168.1.102"
-#define APP_CA_CERT_TAG 1
-#define APP_PSK_TAG 2
-
-static sec_tag_t m_sec_tags[] = {
-#if defined(MBEDTLS_X509_CRT_PARSE_C) || defined(CONFIG_NET_SOCKETS_OFFLOAD)
-		APP_CA_CERT_TAG,
-#endif
-#if defined(MBEDTLS_KEY_EXCHANGE__SOME__PSK_ENABLED)
-		APP_PSK_TAG,
-#endif
-};
+static char *get_mqtt_topic(int subscribe);
 
 static struct device *gpio0, *gpio1;
 int led_cnt = 0;
+static struct mqtt_utf8 username = {
+        .utf8 = USERNAME,
+        .size = USERNAME_LEN
+};
+static struct mqtt_utf8 password = {
+        .utf8 = PASSWORD,
+        .size = PASSWORD_LEN
+};
 
 
 //K_SEM_DEFINE(sem_publish, 0, 1)
@@ -132,7 +127,7 @@ static int app_subscribe(void)
         struct mqtt_topic topic;
         struct mqtt_subscription_list sub;
 
-        topic.topic.utf8 = "sensors"; //get_mqtt_topic();
+        topic.topic.utf8 = get_mqtt_topic(1);
         topic.topic.size = strlen(topic.topic.utf8);
         topic.qos = MQTT_QOS_1_AT_LEAST_ONCE;
         sub.list = &topic;
@@ -154,6 +149,26 @@ static int app_subscribe(void)
 }
 
 static struct gpio_callback gpio_cb;
+#if defined(CONFIG_MQTT_LIB_TLS)
+
+#include "test_certs.h"
+
+#if APP_BLUEMIX_TOPIC
+#define TLS_SNI_HOSTNAME "0o2swt.messaging.internetofthings.ibmcloud.com"
+#else
+#define TLS_SNI_HOSTNAME "test.mosquitto.org" //"192.168.1.102"
+#endif
+#define APP_CA_CERT_TAG 1
+#define APP_PSK_TAG 2
+
+static sec_tag_t m_sec_tags[] = {
+#if defined(MBEDTLS_X509_CRT_PARSE_C) || defined(CONFIG_NET_SOCKETS_OFFLOAD)
+		APP_CA_CERT_TAG,
+#endif
+#if defined(MBEDTLS_KEY_EXCHANGE__SOME__PSK_ENABLED)
+		APP_PSK_TAG,
+#endif
+};
 
 static int tls_init(void)
 {
@@ -362,10 +377,12 @@ void mqtt_evt_handler(struct mqtt_client *const client,
 static char *get_mqtt_payload(enum mqtt_qos qos)
 {
 #if APP_BLUEMIX_TOPIC
-	static char payload[30];
+	static char payload[128];
+        static int buttonToggle = 1;
 
-	snprintk(payload, sizeof(payload), "{d:{temperature:%d}}",
-		 (u8_t)sys_rand32_get());
+	buttonToggle = !buttonToggle;
+        snprintk(payload, sizeof(payload), (const char *)"{\"d\":{\"button\":%d}}",
+               buttonToggle);
 #else
 	static char payload[] = "DOORS:OPEN_QoSx";
 
@@ -375,13 +392,24 @@ static char *get_mqtt_payload(enum mqtt_qos qos)
 	return payload;
 }
 
-static char *get_mqtt_topic(void)
+static char *get_mqtt_topic(int subscribe)
 {
 #if APP_BLUEMIX_TOPIC
-	return "iot-2/type/"BLUEMIX_DEVTYPE"/id/"BLUEMIX_DEVID
-	       "/evt/"BLUEMIX_EVENT"/fmt/"BLUEMIX_FORMAT;
+	if (subscribe == 1) {
+		return "iot-2/cmd/led/fmt/json";
+	}
+	else {
+        	return "iot-2/evt/status/fmt/json";
+	}
+	/*return "iot-2/type/"BLUEMIX_DEVTYPE"/id/"BLUEMIX_DEVID
+	       "/evt/"BLUEMIX_EVENT"/fmt/"BLUEMIX_FORMAT;*/
 #else
-	return TOPIC;
+	if (subscribe == 1) {
+		return "sensors";
+	}
+	else {
+		return TOPIC;
+	}
 #endif
 }
 
@@ -389,8 +417,8 @@ static int publish(struct mqtt_client *client, enum mqtt_qos qos)
 {
 	struct mqtt_publish_param param;
 
-	param.message.topic.qos = qos;
-	param.message.topic.topic.utf8 = (u8_t *)get_mqtt_topic();
+	param.message.topic.qos = 0; //qos;
+	param.message.topic.topic.utf8 = (u8_t *)get_mqtt_topic(0);
 	param.message.topic.topic.size =
 			strlen(param.message.topic.topic.utf8);
 	param.message.payload.data = get_mqtt_payload(qos);
@@ -437,8 +465,13 @@ static void client_init(struct mqtt_client *client)
 	client->evt_cb = mqtt_evt_handler;
 	client->client_id.utf8 = (u8_t *)MQTT_CLIENTID;
 	client->client_id.size = strlen(MQTT_CLIENTID);
+#if APP_BLUEMIX_TOPIC
+	client->password = &password;
+	client->user_name = &username;
+#else
 	client->password = NULL;
 	client->user_name = NULL;
+#endif
 	client->protocol_version = MQTT_VERSION_3_1_1;
 
 	/* MQTT buffers configuration */
@@ -562,6 +595,7 @@ static void publisher(void)
 void main(void)
 {
         struct device *gpiob;
+		int rc;
 
 	/* Init LEDs */
         gpio0 = device_get_binding(PORT0);
@@ -590,8 +624,6 @@ void main(void)
 
 
 #if defined(CONFIG_MQTT_LIB_TLS)
-	int rc;
-
 	rc = tls_init();
 	PRINT_RESULT("tls_init", rc);
 #endif
