@@ -40,8 +40,8 @@ extern "C" {
 
 /** Protocol families */
 #define PF_UNSPEC	0	/* Unspecified. */
-#define PF_INET		1	/* IP protocol family version 4. */
-#define PF_INET6	2	/* IP protocol family version 6. */
+#define PF_INET		2	/* IP protocol family version 4. */
+#define PF_INET6	10	/* IP protocol family version 6. */
 #define PF_PACKET	3	/* Packet family. */
 #define PF_CAN		4	/* Controller Area Network.  */
 
