@@ -1,6 +1,9 @@
 /*
- *  Copyright (C) 2016 Texas Instruments Incorporated - http://www.ti.com/ 
- *  
+ * wlan.c - CC31xx/CC32xx Host Driver Implementation
+ *
+ * Copyright (C) 2017 Texas Instruments Incorporated - http://www.ti.com/ 
+ * 
+ * 
  *  Redistribution and use in source and binary forms, with or without 
  *  modification, are permitted provided that the following conditions 
  *  are met:
@@ -28,49 +31,36 @@
  *  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *  
- */
-//*****************************************************************************
-//
-//  version.h
-//
-//  Contains Driverlib version details
-//
-//*****************************************************************************
+ *
+*/
 
-#ifndef __DRIVERLIB_VERSION_H__
-#define __DRIVERLIB_VERSION_H__
 
-//*****************************************************************************
-//
-// If building with a C++ compiler, make all of the definitions in this header
-// have a C binding.
-//
-//*****************************************************************************
-#ifdef __cplusplus
-extern "C"
+/*****************************************************************************/
+/* Include files                                                             */
+/*****************************************************************************/
+#include <ti/drivers/net/wifi/simplelink.h>
+
+/*****************************************************************************/
+/* Structure/Enum declarations                                               */
+/*****************************************************************************/
+typedef struct
 {
-#endif
-
-#define DRIVERLIB_MAJOR_VERSION_NUM      01
-#define DRIVERLIB_MINOR_VERSION_NUM      51
-#define DRIVERLIB_PATCH_VERSION_NUM      04
-#define DRIVERLIB_BUILD_VERSION_NUM      00
-#define DRIVERLIB_RELEASE_DAY            15
-#define DRIVERLIB_RELEASE_MONTH          04
-#define DRIVERLIB_RELEASE_YEAR           2018
-
-/////////////////////////////////////////////
-// !!! Please update the changes.log file !!!
-/////////////////////////////////////////////
-
-//*****************************************************************************
-//
-// Mark the end of the C bindings section for C++ compilers.
-//
-//*****************************************************************************
-#ifdef __cplusplus
-}
-#endif
-
-#endif // __DRIVERLIB_VERSION_H__
+    _u8          const Mode;
+    _u8          const ConnectionPolicy;
+    _u8          const PMPolicy;
+    _u16         const MaxSleepTimeMS;
+    _u8          const ScanPolicy;
+    _u32         const ScanIntervalInSeconds ;
+    _u8          const Ipv4Mode;
+    _u8          const Ipv4Config;
+    _u32         const Ipv4;
+    _u32         const IpMask;
+    _u32         const IpGateway;
+    _u32         const IpDnsServer;
+    _u8          const DHCPServer;
+    _u32         const StartAddress;
+    _u32         const LastAddress;
+    _u32         const LeaseTime;
+    _u8          const ProvisioningStop;
+    _u8          const DeleteAllProfile;
+}SlWifiCC32XXConfig_t;
