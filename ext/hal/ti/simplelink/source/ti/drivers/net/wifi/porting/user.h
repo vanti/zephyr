@@ -934,7 +934,7 @@ extern int dpl_set_errno(int err);
     \note                   belongs to \ref configuration_sec
     \warning
 */
-#define sl_SyncObjGetCount(pSyncObj,pValue)         sem_getvalue(pSyncObj, pValue);
+#define sl_SyncObjGetCount(pSyncObj,pValue)         sem_getvalue(pSyncObj, (int *)pValue);
 
 /*!
     \brief  type definition for a locking object container
