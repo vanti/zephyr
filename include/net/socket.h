@@ -215,7 +215,7 @@ static inline void zsock_freeaddrinfo(struct zsock_addrinfo *ai)
 
 #define pollfd zsock_pollfd
 #define fd_set zsock_fd_set
-#define timeval zsock_timeval
+//#define timeval zsock_timeval
 #define FD_SETSIZE ZSOCK_FD_SETSIZE
 
 #if !defined(CONFIG_NET_SOCKETS_OFFLOAD)
