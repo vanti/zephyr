@@ -59,6 +59,8 @@ struct socket_offload {
 			   struct addrinfo **res);
 	void (*freeaddrinfo)(struct addrinfo *res);
 	int (*fcntl)(int fd, int cmd, va_list args);
+	int (*select)(int nfds, fd_set *readsds, fd_set *writesds,
+			fd_set *exceptsds, struct timeval *timeout);
 };
 
 /**

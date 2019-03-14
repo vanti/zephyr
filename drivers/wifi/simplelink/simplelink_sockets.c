@@ -1065,6 +1065,134 @@ static int simplelink_fctnl(int fd, int cmd, va_list args)
 	return -1;
 }
 
+/* Borrowed a few functions from the non-offload path to support select() */
+/* Get size, in elements, of an array within a struct. */
+#define STRUCT_MEMBER_ARRAY_SIZE(type, field) ARRAY_SIZE(((type *)0)->field)
+
+/* Returns results in word_idx and bit_mask "output" params */
+#define FD_SET_CALC_OFFSETS(set, word_idx, bit_mask) { \
+	unsigned int b_idx = fd % (sizeof(set->bitset[0]) * 8); \
+	word_idx = fd / (sizeof(set->bitset[0]) * 8); \
+	bit_mask = 1 << b_idx; \
+	}
+
+void ZSOCK_FD_ZERO(zsock_fd_set *set)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(set->bitset); i++) {
+		set->bitset[i] = 0;
+	}
+}
+
+int ZSOCK_FD_ISSET(int fd, zsock_fd_set *set)
+{
+	u32_t word_idx, bit_mask;
+
+	if (fd < 0 || fd >= ZSOCK_FD_SETSIZE) {
+		return 0;
+	}
+
+	FD_SET_CALC_OFFSETS(set, word_idx, bit_mask);
+
+	return (set->bitset[word_idx] & bit_mask) != 0;
+}
+
+void ZSOCK_FD_CLR(int fd, zsock_fd_set *set)
+{
+	u32_t word_idx, bit_mask;
+
+	if (fd < 0 || fd >= ZSOCK_FD_SETSIZE) {
+		return;
+	}
+
+	FD_SET_CALC_OFFSETS(set, word_idx, bit_mask);
+
+	set->bitset[word_idx] &= ~bit_mask;
+}
+
+void ZSOCK_FD_SET(int fd, zsock_fd_set *set)
+{
+	u32_t word_idx, bit_mask;
+
+	if (fd < 0 || fd >= ZSOCK_FD_SETSIZE) {
+		return;
+	}
+
+	FD_SET_CALC_OFFSETS(set, word_idx, bit_mask);
+
+	set->bitset[word_idx] |= bit_mask;
+}
+
+static int simplelink_select(int nfds, fd_set *readsds, fd_set *writesds,
+	fd_set *exceptsds, struct zsock_timeval *timeout)
+{
+	struct SlTimeval_t tv, *ptv;
+	SlFdSet_t rfds;	 /* Set of read file descriptors */
+	SlFdSet_t wfds;	 /* Set of write file descriptors */
+	SlFdSet_t efds;  /* Set of except file descriptors */
+	int i, retval;
+
+	if (nfds > SL_FD_SETSIZE) {
+		retval = slcb_SetErrno(EINVAL);
+		goto exit;
+	}
+
+	/* Convert time to SlTimeval struct values: */
+	if (timeout == NULL) {
+		ptv = NULL;
+	} else {
+		tv.tv_sec = timeout->tv_sec;
+		tv.tv_usec = timeout->tv_usec;
+		ptv = &tv;
+	}
+
+	/* Setup read and write fds for select, based on pollfd fields: */
+	SL_SOCKET_FD_ZERO(&rfds);
+	SL_SOCKET_FD_ZERO(&wfds);
+	SL_SOCKET_FD_ZERO(&efds);
+
+	for (i = 0; i < nfds; i++) {
+		/* check if readsds is set and if so, translate to SL */
+		if ((readsds != NULL) && (FD_ISSET(i, readsds))) {
+			SL_SOCKET_FD_SET(i, &rfds);
+		}
+
+		/* check if writesds is set and if so, translate to SL */
+		if ((writesds != NULL) && (FD_ISSET(i, writesds))) {
+			SL_SOCKET_FD_SET(i, &wfds);
+		}
+
+		/* check if exceptsds is set and if so, translate to SL */
+		if ((exceptsds != NULL) && (FD_ISSET(i, exceptsds))) {
+			SL_SOCKET_FD_SET(i, &efds);
+		}
+	}
+
+	/* Wait for requested read and write fds to be ready: */
+	retval = sl_Select(nfds, &rfds, &wfds, &efds, ptv);
+	if (retval > 0) {
+		for (i = 0; i < nfds; i++) {
+			if (!SL_SOCKET_FD_ISSET(i, &rfds)) {
+				FD_CLR(i, readsds);
+			}
+			if (!SL_SOCKET_FD_ISSET(i, &wfds)) {
+				FD_CLR(i, writesds);
+			}
+			if (!SL_SOCKET_FD_ISSET(i, &rfds)) {
+				FD_CLR(i, exceptsds);
+			}
+		}
+	}
+
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+exit:
+	return retval;
+}
+
 void simplelink_sockets_init(void)
 {
 	k_mutex_init(&ga_mutex);
@@ -1087,4 +1215,5 @@ const struct socket_offload simplelink_ops = {
 	.getaddrinfo = simplelink_getaddrinfo,
 	.freeaddrinfo = simplelink_freeaddrinfo,
 	.fcntl = simplelink_fctnl,
+	.select = simplelink_select,
 };

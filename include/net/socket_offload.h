@@ -158,6 +158,35 @@ static inline void freeaddrinfo(struct addrinfo *res)
 	return socket_ops->freeaddrinfo(res);
 }
 
+static inline int select(int nfds, fd_set *readsds, fd_set *writesds,
+	fd_set *exceptsds, struct timeval *timeout)
+{
+	__ASSERT_NO_MSG(socket_ops);
+	__ASSERT_NO_MSG(socket_ops->select);
+
+	return socket_ops->select(nfds, readsds, writesds, exceptsds, timeout);
+}
+
+static inline void FD_ZERO(zsock_fd_set *set)
+{
+	ZSOCK_FD_ZERO(set);
+}
+
+static inline int FD_ISSET(int fd, zsock_fd_set *set)
+{
+	return ZSOCK_FD_ISSET(fd, set);
+}
+
+static inline void FD_CLR(int fd, zsock_fd_set *set)
+{
+	ZSOCK_FD_CLR(fd, set);
+}
+
+static inline void FD_SET(int fd, zsock_fd_set *set)
+{
+	ZSOCK_FD_SET(fd, set);
+}
+
 int fcntl(int fd, int cmd, ...);
 
 #ifdef __cplusplus
