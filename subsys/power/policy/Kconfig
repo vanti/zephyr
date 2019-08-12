@@ -10,6 +10,12 @@ config SYS_PM_POLICY_RESIDENCY
 	help
 	  Select this option for PM policy based on CPU residencies.
 
+config SYS_PM_POLICY_RESIDENCY_CC13X2_CC26X2
+	bool "PM Policy based on CPU residency"
+	help
+	  Select this option for PM policy based on CPU residencies,
+	  applicable for CC13X2/CC26X2.
+
 config SYS_PM_POLICY_DUMMY
 	bool "Dummy PM Policy"
 	help
@@ -22,7 +28,7 @@ config SYS_PM_POLICY_APP
 
 endchoice
 
-if SYS_PM_POLICY_RESIDENCY
+if SYS_PM_POLICY_RESIDENCY || SYS_PM_POLICY_RESIDENCY_CC13X2_CC26X2
 
 config SYS_PM_MIN_RESIDENCY_SLEEP_1
 	int "Sleep State 1 minimum residency"
