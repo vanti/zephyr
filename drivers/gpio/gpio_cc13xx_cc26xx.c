@@ -15,6 +15,9 @@
 #include <driverlib/ioc.h>
 #include <driverlib/prcm.h>
 
+#include <ti/drivers/Power.h>
+#include <ti/drivers/power/PowerCC26XX.h>
+
 #include "gpio_utils.h"
 
 struct gpio_cc13xx_cc26xx_data {
@@ -222,6 +225,9 @@ static int gpio_cc13xx_cc26xx_init(struct device *dev)
 	while (!PRCMLoadGet()) {
 		continue;
 	}
+
+	/* Set Power dependecies & constraints */
+	Power_setDependency(PowerCC26XX_PERIPH_GPIO);
 
 	/* Enable IRQ */
 	IRQ_CONNECT(DT_INST_0_TI_CC13XX_CC26XX_GPIO_IRQ_0,
