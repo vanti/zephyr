@@ -21,6 +21,8 @@ manifest:
   remotes:
     - name: upstream
       url-base: https://github.com/zephyrproject-rtos
+    - name: origin
+      url-base: https://github.com/vanti
 
   #
   # Please add items below based on alphabetical order
@@ -62,7 +64,8 @@ manifest:
       revision: 20776221282b6447c6330a041bc27758c8f593f3
       path: modules/hal/stm32
     - name: hal_ti
-      revision: 7a82e93e14766ef6e42df9915ea2ab8e3b952a8b
+      remote: origin
+      revision: 2026bbb8427ffffe6ff235cdf88558d14e43dfeb
       path: modules/hal/ti
     - name: libmetal
       revision: 45e630d6152824f807d3f919958605c4626cbdff
