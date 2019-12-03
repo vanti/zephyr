@@ -20,9 +20,17 @@ LOG_MODULE_DECLARE(LOG_MODULE_NAME);
 #include <ti/drivers/net/wifi/source/driver.h>
 #include "simplelink_support.h"
 
+#include "sockets_internal.h"
 #include "tls_internal.h"
 
 #define FAILED (-1)
+
+/* Socket LUT, matching system file descriptor with offloaded descriptor.
+ * Note: system FD will always be less than CONFIG_POSIX_MAX_FDS.
+ */
+static int simplelink_offload_fd[CONFIG_POSIX_MAX_FDS] = {
+	[0 ... CONFIG_POSIX_MAX_FDS - 1] = -1
+};
 
 /* Mutex for getaddrinfo() calls: */
 K_MUTEX_DEFINE(ga_mutex);
@@ -373,8 +381,10 @@ static void translate_sl_to_z_addr(SlSockAddr_t *sl_addr,
 	}
 }
 
-static int simplelink_accept(int sd, struct sockaddr *addr, socklen_t *addrlen)
+static int simplelink_accept(void *obj, struct sockaddr *addr,
+			     socklen_t *addrlen)
 {
+	int sd = *((int *)obj);
 	int retval;
 	SlSockAddr_t *sl_addr;
 	SlSockAddrIn_t sl_addr_in;
@@ -410,9 +420,10 @@ exit:
 	return retval;
 }
 
-static int simplelink_bind(int sd, const struct sockaddr *addr,
+static int simplelink_bind(void *obj, const struct sockaddr *addr,
 			   socklen_t addrlen)
 {
+	int sd = *((int *)obj);
 	int retval;
 	SlSockAddr_t *sl_addr;
 	SlSockAddrIn_t sl_addr_in;
@@ -443,8 +454,9 @@ exit:
 	return retval;
 }
 
-static int simplelink_listen(int sd, int backlog)
+static int simplelink_listen(void *obj, int backlog)
 {
+	int sd = *((int *)obj);
 	int retval;
 
 	retval = (int)sl_Listen(sd, backlog);
@@ -456,9 +468,10 @@ static int simplelink_listen(int sd, int backlog)
 	return retval;
 }
 
-static int simplelink_connect(int sd, const struct sockaddr *addr,
+static int simplelink_connect(void *obj, const struct sockaddr *addr,
 			      socklen_t addrlen)
 {
+	int sd = *((int *)obj);
 	int retval;
 	SlSockAddr_t *sl_addr;
 	SlSockAddrIn_t sl_addr_in;
@@ -537,9 +550,16 @@ static int simplelink_poll(struct pollfd *fds, int nfds, int msecs)
 
 	for (i = 0; i < nfds; i++) {
 		fds[i].revents = 0;
-		fd = fds[i].fd;
-		if (fd < 0) {
+		if (fds[i].fd < 0) {
 			continue;
+		} else if ((fds[i].fd >= ARRAY_SIZE(simplelink_offload_fd)) ||
+			   (simplelink_offload_fd[fds[i].fd] == -1)) {
+			/* Non-offloaded socket, return an error. */
+			retval = slcb_SetErrno(EINVAL);
+			goto exit;
+		} else {
+			/* Offloaded socket, good to go. */
+			fd = simplelink_offload_fd[fds[i].fd];
 		}
 		if (fds[i].events & POLLIN) {
 			SL_SOCKET_FD_SET(fd, &rfds);
@@ -547,19 +567,20 @@ static int simplelink_poll(struct pollfd *fds, int nfds, int msecs)
 		if (fds[i].events & POLLOUT) {
 			SL_SOCKET_FD_SET(fd, &wfds);
 		}
-		if (fds[i].fd > max_fd) {
-			max_fd = fds[i].fd;
+		if (fd > max_fd) {
+			max_fd = fd;
 		}
 	}
 
 	/* Wait for requested read and write fds to be ready: */
 	retval = sl_Select(max_fd + 1, &rfds, &wfds, NULL, ptv);
 	if (retval > 0) {
-		for (i = 0; i < (max_fd + 1); i++) {
-			if (SL_SOCKET_FD_ISSET(fds[i].fd, &rfds)) {
+		for (i = 0; i < nfds; i++) {
+			fd = simplelink_offload_fd[fds[i].fd];
+			if (SL_SOCKET_FD_ISSET(fd, &rfds)) {
 				fds[i].revents |= POLLIN;
 			}
-			if (SL_SOCKET_FD_ISSET(fds[i].fd, &wfds)) {
+			if (SL_SOCKET_FD_ISSET(fd, &wfds)) {
 				fds[i].revents |= POLLOUT;
 			}
 		}
@@ -651,9 +672,10 @@ static int map_credentials(int sd, const void *optval, socklen_t optlen)
 /* Needed to keep line lengths < 80: */
 #define _SEC_DOMAIN_VERIF SL_SO_SECURE_DOMAIN_NAME_VERIFICATION
 
-static int simplelink_setsockopt(int sd, int level, int optname,
+static int simplelink_setsockopt(void *obj, int level, int optname,
 				 const void *optval, socklen_t optlen)
 {
+	int sd = *((int *)obj);
 	int retval;
 
 	if (IS_ENABLED(CONFIG_NET_SOCKETS_SOCKOPT_TLS) && level == SOL_TLS) {
@@ -744,9 +766,10 @@ exit:
 	return retval;
 }
 
-static int simplelink_getsockopt(int sd, int level, int optname,
+static int simplelink_getsockopt(void *obj, int level, int optname,
 				 void *optval, socklen_t *optlen)
 {
+	int sd = *((int *)obj);
 	int retval;
 
 	if (IS_ENABLED(CONFIG_NET_SOCKETS_SOCKOPT_TLS) && level == SOL_TLS) {
@@ -839,29 +862,10 @@ static int handle_recv_flags(int sd, int flags, bool set, int *nb_enabled)
 	return retval;
 }
 
-static ssize_t simplelink_recv(int sd, void *buf, size_t max_len, int flags)
+static ssize_t simplelink_recvfrom(void *obj, void *buf, size_t len, int flags,
+				   struct sockaddr *from, socklen_t *fromlen)
 {
-	ssize_t retval;
-	int nb_enabled;
-
-	retval = handle_recv_flags(sd, flags, TRUE, &nb_enabled);
-	if (!retval) {
-		retval = (ssize_t)sl_Recv(sd, buf, max_len, 0);
-		handle_recv_flags(sd, flags, FALSE, &nb_enabled);
-		if (retval < 0) {
-			retval = slcb_SetErrno(getErrno(retval));
-		}
-	} else {
-		retval = slcb_SetErrno(retval);
-	}
-
-	return (ssize_t)(retval);
-}
-
-static ssize_t simplelink_recvfrom(int sd, void *buf, short int len,
-				   short int flags, struct sockaddr *from,
-				   socklen_t *fromlen)
-{
+	int sd = *((int *)obj);
 	ssize_t retval;
 	SlSockAddr_t *sl_addr;
 	SlSockAddrIn_t sl_addr_in;
@@ -900,24 +904,11 @@ static ssize_t simplelink_recvfrom(int sd, void *buf, short int len,
 	return retval;
 }
 
-static ssize_t simplelink_send(int sd, const void *buf, size_t len,
-			       int flags)
+static ssize_t simplelink_sendto(void *obj, const void *buf, size_t len,
+				 int flags, const struct sockaddr *to,
+				 socklen_t tolen)
 {
-	ssize_t retval;
-
-	retval = (ssize_t)sl_Send(sd, buf, len, flags);
-
-	if (retval < 0) {
-		retval = slcb_SetErrno(getErrno(retval));
-	}
-
-	return retval;
-}
-
-static ssize_t simplelink_sendto(int sd, const void *buf, size_t len,
-				    int flags, const struct sockaddr *to,
-				    socklen_t tolen)
-{
+	int sd = *((int *)obj);
 	ssize_t retval;
 	SlSockAddr_t *sl_addr;
 	SlSockAddrIn_t sl_addr_in;
@@ -942,6 +933,13 @@ exit:
 	}
 
 	return retval;
+}
+
+static ssize_t simplelink_sendmsg(void *obj, const struct msghdr *msg,
+				  int flags)
+{
+	errno = -ENOTSUP;
+	return -1;
 }
 
 /*
@@ -1095,26 +1093,117 @@ exit:
 	return retval;
 }
 
+static int simplelink_ioctl(void *obj, unsigned int request, va_list args)
+{
+	int sd = *((int *)obj);
+
+	switch (request) {
+	/* Handle close specifically. */
+	case ZFD_IOCTL_CLOSE:
+		/* `obj` points to an entry in `simplelink_offload_fd` LUT. */
+		*((int *)obj) = -1;
+		z_free_fd(sd);
+		return simplelink_close(sd);
+
+	/* Otherwise, just forward to offloaded fcntl()
+	 * In Zephyr, fcntl() is just an alias of ioctl().
+	 */
+	default:
+		return simplelink_fcntl(sd, request, args);
+	}
+}
+
+static ssize_t simplelink_read(void *obj, void *buffer, size_t count)
+{
+	return simplelink_recvfrom(obj, buffer, count, 0, NULL, 0);
+}
+
+static ssize_t simplelink_write(void *obj, const void *buffer,
+					  size_t count)
+{
+	return simplelink_sendto(obj, buffer, count, 0, NULL, 0);
+}
+
+static const struct socket_op_vtable simplelink_socket_fd_op_vtable = {
+	.fd_vtable = {
+		.read = simplelink_read,
+		.write = simplelink_write,
+		.ioctl = simplelink_ioctl,
+	},
+	.bind = simplelink_bind,
+	.connect = simplelink_connect,
+	.listen = simplelink_listen,
+	.accept = simplelink_accept,
+	.sendto = simplelink_sendto,
+	.sendmsg = simplelink_sendmsg,
+	.recvfrom = simplelink_recvfrom,
+	.getsockopt = simplelink_getsockopt,
+	.setsockopt = simplelink_setsockopt,
+};
+
+static bool simplelink_is_supported(int family, int type, int proto)
+{
+	/* TODO offloading always enabled for now. */
+	return true;
+}
+
+static int simplelink_socket_create(int family, int type, int proto)
+{
+	int fd = z_reserve_fd();
+	int sock;
+
+	if (fd < 0) {
+		return -1;
+	}
+
+	sock = simplelink_socket(family, type, proto);
+	if (sock < 0) {
+		z_free_fd(fd);
+		return -1;
+	}
+
+	simplelink_offload_fd[fd] = sock;
+
+	z_finalize_fd(fd, &simplelink_offload_fd[fd],
+		      (const struct fd_op_vtable *)
+					&simplelink_socket_fd_op_vtable);
+
+	return fd;
+}
+
+static bool simplelink_poll_takeover(struct zsock_pollfd *fds, int nfds)
+{
+	int i;
+
+	/* Takeover if there's at least one offloaded socket on a list.
+	 * In case there's a socket type mixup, we need to return an error.
+	 */
+	for (i = 0; i < nfds; i++) {
+		if ((fds[i].fd >= ARRAY_SIZE(simplelink_offload_fd)) ||
+		    (fds[i].fd < 0)) {
+			continue;
+		}
+
+		if (simplelink_offload_fd[fds[i].fd] != -1) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+#ifdef CONFIG_NET_SOCKETS_OFFLOAD
+NET_SOCKET_REGISTER(simplelink, AF_UNSPEC, simplelink_is_supported,
+		    simplelink_socket_create, simplelink_poll_takeover,
+		    simplelink_poll);
+#endif
+
 void simplelink_sockets_init(void)
 {
 	k_mutex_init(&ga_mutex);
 }
 
-const struct socket_offload simplelink_ops = {
-	.socket = simplelink_socket,
-	.close = simplelink_close,
-	.accept = simplelink_accept,
-	.bind = simplelink_bind,
-	.listen = simplelink_listen,
-	.connect = simplelink_connect,
-	.poll = simplelink_poll,
-	.setsockopt = simplelink_setsockopt,
-	.getsockopt = simplelink_getsockopt,
-	.recv = simplelink_recv,
-	.recvfrom = simplelink_recvfrom,
-	.send = simplelink_send,
-	.sendto = simplelink_sendto,
+const struct socket_dns_offload simplelink_dns_ops = {
 	.getaddrinfo = simplelink_getaddrinfo,
 	.freeaddrinfo = simplelink_freeaddrinfo,
-	.fcntl = simplelink_fcntl,
 };
