@@ -398,4 +398,4 @@ static bool net_mgmt_is_supported(int family, int type, int proto)
 }
 
 NET_SOCKET_REGISTER(af_net_mgmt, AF_NET_MGMT, net_mgmt_is_supported,
-		    znet_mgmt_socket);
+		    znet_mgmt_socket, NULL, NULL);

@@ -212,14 +212,14 @@ static bool is_ip(int family, int type, int proto)
 	return true;
 }
 
-NET_SOCKET_REGISTER(af_inet,   AF_INET,   is_ip,      socket_test);
-NET_SOCKET_REGISTER(af_inet6,  AF_INET6,  is_ip,      socket_test);
-NET_SOCKET_REGISTER(af_can2,   AF_CAN,    is_ip,      socket_test);
+NET_SOCKET_REGISTER(af_inet,   AF_INET,   is_ip,      socket_test, NULL, NULL);
+NET_SOCKET_REGISTER(af_inet6,  AF_INET6,  is_ip,      socket_test, NULL, NULL);
+NET_SOCKET_REGISTER(af_can2,   AF_CAN,    is_ip,      socket_test, NULL, NULL);
 
 /* For these socket families, we return ok always for now */
-NET_SOCKET_REGISTER(tls,       AF_UNSPEC, is_tls,    socket_test_ok);
-NET_SOCKET_REGISTER(af_packet, AF_PACKET, is_packet, socket_test_ok);
-NET_SOCKET_REGISTER(af_can,    AF_CAN,    is_can,    socket_test_ok);
+NET_SOCKET_REGISTER(tls,       AF_UNSPEC, is_tls,    socket_test_ok, NULL, NULL);
+NET_SOCKET_REGISTER(af_packet, AF_PACKET, is_packet, socket_test_ok, NULL, NULL);
+NET_SOCKET_REGISTER(af_can,    AF_CAN,    is_can,    socket_test_ok, NULL, NULL);
 
 void test_create_sockets(void)
 {

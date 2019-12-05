@@ -2060,4 +2060,4 @@ static bool tls_is_supported(int family, int type, int proto)
 	return false;
 }
 
-NET_SOCKET_REGISTER(tls, AF_UNSPEC, tls_is_supported, ztls_socket);
+NET_SOCKET_REGISTER(tls, AF_UNSPEC, tls_is_supported, ztls_socket, NULL, NULL);

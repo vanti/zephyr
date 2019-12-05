@@ -1042,6 +1042,21 @@ int z_impl_zsock_poll(struct zsock_pollfd *fds, int nfds, int timeout)
 	const struct fd_op_vtable *vtable;
 	u32_t entry_time = k_uptime_get_32();
 
+	/* Check if any of the registered socket engines wants to handle this
+	 * poll call.
+	 */
+	Z_STRUCT_SECTION_FOREACH(net_socket_register, sock_family) {
+		if (sock_family->poll_takeover == NULL) {
+			continue;
+		}
+
+		if (!sock_family->poll_takeover(fds, nfds)) {
+			continue;
+		}
+
+		return sock_family->custom_poll(fds, nfds, timeout);
+	}
+
 	if (timeout < 0) {
 		timeout = K_FOREVER;
 	}

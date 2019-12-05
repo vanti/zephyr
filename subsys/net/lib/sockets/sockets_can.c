@@ -697,4 +697,4 @@ static bool can_is_supported(int family, int type, int proto)
 	return true;
 }
 
-NET_SOCKET_REGISTER(af_can, AF_CAN, can_is_supported, zcan_socket);
+NET_SOCKET_REGISTER(af_can, AF_CAN, can_is_supported, zcan_socket, NULL, NULL);

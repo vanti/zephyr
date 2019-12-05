@@ -788,17 +788,22 @@ struct net_socket_register {
 	int family;
 	bool (*is_supported)(int family, int type, int proto);
 	int (*handler)(int family, int type, int proto);
+	bool (*poll_takeover)(struct zsock_pollfd *fds, int nfds);
+	int (*custom_poll)(struct zsock_pollfd *fds, int nfds, int timeout);
 };
 
 #define NET_SOCKET_GET_NAME(socket_name)	\
 	(__net_socket_register_##socket_name)
 
-#define NET_SOCKET_REGISTER(socket_name, _family, _is_supported, _handler) \
+#define NET_SOCKET_REGISTER(socket_name, _family, _is_supported, _handler, \
+			    _poll_takeover, _custom_poll) 		\
 	static const Z_STRUCT_SECTION_ITERABLE(net_socket_register,	\
 			NET_SOCKET_GET_NAME(socket_name)) = {		\
 		.family = _family,					\
 		.is_supported = _is_supported,				\
 		.handler = _handler,					\
+		.poll_takeover = _poll_takeover,			\
+		.custom_poll = _custom_poll,				\
 	}
 
 /** @endcond */
