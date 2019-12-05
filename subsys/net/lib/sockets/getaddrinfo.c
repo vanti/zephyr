@@ -14,6 +14,7 @@ LOG_MODULE_REGISTER(net_sock_addr, CONFIG_NET_SOCKETS_LOG_LEVEL);
 
 #include <kernel.h>
 #include <net/socket.h>
+#include <net/socket_offload.h>
 #include <syscall_handler.h>
 
 #define AI_ARR_MAX	2
@@ -320,10 +321,18 @@ out:
 #include <syscalls/z_zsock_getaddrinfo_internal_mrsh.c>
 #endif /* CONFIG_USERSPACE */
 
+#endif /* defined(CONFIG_DNS_RESOLVER) */
+
 int zsock_getaddrinfo(const char *host, const char *service,
 		      const struct zsock_addrinfo *hints,
 		      struct zsock_addrinfo **res)
 {
+	/* TODO add specific config for offloaded DNS? */
+#if defined(CONFIG_NET_SOCKETS_OFFLOAD)
+	return socket_offload_getaddrinfo(host, service, hints, res);
+#endif
+
+#if defined(CONFIG_DNS_RESOLVER)
 	int ret;
 
 	*res = calloc(AI_ARR_MAX, sizeof(struct zsock_addrinfo));
@@ -336,6 +345,18 @@ int zsock_getaddrinfo(const char *host, const char *service,
 		*res = NULL;
 	}
 	return ret;
+#endif
+
+	return DNS_EAI_FAIL;
+}
+
+void zsock_freeaddrinfo(struct zsock_addrinfo *ai)
+{
+#if defined(CONFIG_NET_SOCKETS_OFFLOAD)
+	return socket_offload_freeaddrinfo(ai);
+#endif
+
+	free(ai);
 }
 
 #define ERR(e) case DNS_ ## e: return #e
@@ -356,5 +377,3 @@ const char *zsock_gai_strerror(int errcode)
 	}
 }
 #undef ERR
-
-#endif
