@@ -876,27 +876,31 @@ static ssize_t simplelink_recvfrom(void *obj, void *buf, size_t len, int flags,
 	SlSocklen_t sl_addrlen;
 	int nb_enabled;
 
-	__ASSERT_NO_MSG(fromlen);
-
 	retval = handle_recv_flags(sd, flags, TRUE, &nb_enabled);
 
 	if (!retval) {
 		/* Translate to sl_RecvFrom() parameters: */
-		sl_addr = translate_z_to_sl_addrlen(*fromlen, &sl_addr_in,
-						    &sl_addr_in6,
-						    &sl_addrlen);
-		if (sl_addr == NULL) {
-			retval = SL_RET_CODE_INVALID_INPUT;
-		} else {
+		if (fromlen != NULL) {
+			sl_addr = translate_z_to_sl_addrlen(*fromlen,
+							    &sl_addr_in,
+							    &sl_addr_in6,
+							    &sl_addrlen);
 			retval = (ssize_t)sl_RecvFrom(sd, buf, len, 0, sl_addr,
 						      &sl_addrlen);
-			handle_recv_flags(sd, flags, FALSE, &nb_enabled);
+		} else {
+			retval = (ssize_t)sl_Recv(sd, buf, len, 0);
 		}
 
+		handle_recv_flags(sd, flags, FALSE, &nb_enabled);
 		if (retval >= 0) {
-			/* Translate sl_addr into *addr and set *addrlen: */
-			translate_sl_to_z_addr(sl_addr, sl_addrlen, from,
-					       fromlen);
+			if (fromlen != NULL) {
+				/*
+				 * Translate sl_addr into *addr and set
+				 * *addrlen
+				 */
+				translate_sl_to_z_addr(sl_addr, sl_addrlen,
+						       from, fromlen);
+			}
 		} else {
 			retval = slcb_SetErrno(getErrno(retval));
 		}
@@ -918,17 +922,21 @@ static ssize_t simplelink_sendto(void *obj, const void *buf, size_t len,
 	SlSockAddrIn6_t sl_addr_in6;
 	SlSocklen_t sl_addrlen;
 
-	/* Translate to sl_SendTo() parameters: */
-	sl_addr = translate_z_to_sl_addrs(to, tolen, &sl_addr_in,
-					  &sl_addr_in6, &sl_addrlen);
+	if (to != NULL) {
+		/* Translate to sl_SendTo() parameters: */
+		sl_addr = translate_z_to_sl_addrs(to, tolen, &sl_addr_in,
+						  &sl_addr_in6, &sl_addrlen);
 
-	if (sl_addr == NULL) {
-		retval = SL_RET_CODE_INVALID_INPUT;
-		goto exit;
+		if (sl_addr == NULL) {
+			retval = SL_RET_CODE_INVALID_INPUT;
+			goto exit;
+		}
+
+		retval = sl_SendTo(sd, buf, (u16_t)len, flags,
+				   sl_addr, sl_addrlen);
+	} else {
+		retval = (ssize_t)sl_Send(sd, buf, len, flags);
 	}
-
-	retval = sl_SendTo(sd, buf, (u16_t)len, flags,
-				    sl_addr, sl_addrlen);
 
 exit:
 	if (retval < 0) {
