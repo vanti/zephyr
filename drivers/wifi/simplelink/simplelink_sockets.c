@@ -35,6 +35,9 @@ static int simplelink_offload_fd[CONFIG_POSIX_MAX_FDS] = {
 /* Mutex for getaddrinfo() calls: */
 K_MUTEX_DEFINE(ga_mutex);
 
+static int simplelink_socket_accept(void *obj, struct sockaddr *addr,
+			     socklen_t *addrlen);
+
 /*
  * Convert SL error codes into BSD errno values
  * note that we are handling the same set of values as in TI SlNetSock
@@ -1133,7 +1136,7 @@ static const struct socket_op_vtable simplelink_socket_fd_op_vtable = {
 	.bind = simplelink_bind,
 	.connect = simplelink_connect,
 	.listen = simplelink_listen,
-	.accept = simplelink_accept,
+	.accept = simplelink_socket_accept,
 	.sendto = simplelink_sendto,
 	.sendmsg = simplelink_sendmsg,
 	.recvfrom = simplelink_recvfrom,
@@ -1157,6 +1160,31 @@ static int simplelink_socket_create(int family, int type, int proto)
 	}
 
 	sock = simplelink_socket(family, type, proto);
+	if (sock < 0) {
+		z_free_fd(fd);
+		return -1;
+	}
+
+	simplelink_offload_fd[fd] = sock;
+
+	z_finalize_fd(fd, &simplelink_offload_fd[fd],
+		      (const struct fd_op_vtable *)
+					&simplelink_socket_fd_op_vtable);
+
+	return fd;
+}
+
+static int simplelink_socket_accept(void *obj, struct sockaddr *addr,
+			     socklen_t *addrlen)
+{
+	int fd = z_reserve_fd();
+	int sock;
+
+	if (fd < 0) {
+		return -1;
+	}
+
+	sock = simplelink_accept(obj, addr, addrlen);
 	if (sock < 0) {
 		z_free_fd(fd);
 		return -1;
