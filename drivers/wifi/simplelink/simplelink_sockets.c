@@ -579,12 +579,14 @@ static int simplelink_poll(struct pollfd *fds, int nfds, int msecs)
 	retval = sl_Select(max_fd + 1, &rfds, &wfds, NULL, ptv);
 	if (retval > 0) {
 		for (i = 0; i < nfds; i++) {
-			fd = simplelink_offload_fd[fds[i].fd];
-			if (SL_SOCKET_FD_ISSET(fd, &rfds)) {
-				fds[i].revents |= POLLIN;
-			}
-			if (SL_SOCKET_FD_ISSET(fd, &wfds)) {
-				fds[i].revents |= POLLOUT;
+			if (fds[i].fd >= 0) {
+				fd = simplelink_offload_fd[fds[i].fd];
+				if (SL_SOCKET_FD_ISSET(fd, &rfds)) {
+					fds[i].revents |= POLLIN;
+				}
+				if (SL_SOCKET_FD_ISSET(fd, &wfds)) {
+					fds[i].revents |= POLLOUT;
+				}
 			}
 		}
 	}
