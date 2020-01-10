@@ -140,3 +140,14 @@ enum power_states sys_pm_policy_next_state(s32_t ticks)
 	LOG_DBG("No suitable power state found!");
 	return SYS_POWER_STATE_ACTIVE;
 }
+
+__weak bool sys_pm_policy_low_power_devices(enum power_states pm_state)
+{
+	bool ret = false;
+
+	if (pm_state == SYS_POWER_STATE_SLEEP_2) {
+		ret = true;
+	}
+
+	return ret;
+}
