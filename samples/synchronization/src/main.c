@@ -26,6 +26,8 @@
 /* delay between greetings (in ms) */
 #define SLEEPTIME 500
 
+extern void CC1352R1_LAUNCHXL_shutDownExtFlash(void);
+
 
 /*
  * @param my_name      thread identification string
@@ -43,13 +45,13 @@ void helloLoop(const char *my_name,
 
 		/* say "hello" */
 		tname = k_thread_name_get(k_current_get());
-		if (tname == NULL) {
+		/*if (tname == NULL) {
 			printk("%s: Hello World from %s!\n",
 				my_name, CONFIG_BOARD);
 		} else {
 			printk("%s: Hello World from %s!\n",
 				tname, CONFIG_BOARD);
-		}
+		}*/
 
 		/* wait a while, then let other thread have a turn */
 		k_msleep(SLEEPTIME);
@@ -85,7 +87,7 @@ void threadA(void *dummy1, void *dummy2, void *dummy3)
 	ARG_UNUSED(dummy1);
 	ARG_UNUSED(dummy2);
 	ARG_UNUSED(dummy3);
-
+CC1352R1_LAUNCHXL_shutDownExtFlash();
 	/* spawn threadB */
 	k_tid_t tid = k_thread_create(&threadB_data, threadB_stack_area,
 			STACKSIZE, threadB, NULL, NULL, NULL,

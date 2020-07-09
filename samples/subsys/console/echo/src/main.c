@@ -7,9 +7,12 @@
 #include <console/console.h>
 
 static const char prompt[] = "Start typing characters to see them echoed back\r\n";
+extern void CC1352R1_LAUNCHXL_shutDownExtFlash(void);
 
 void main(void)
 {
+CC1352R1_LAUNCHXL_shutDownExtFlash();
+
 	console_init();
 
 	printk("You should see another line with instructions below. If not,\n");
