@@ -79,3 +79,6 @@ tests:
   sample.net.sockets.echo_server.userspace:
     extra_args: CONFIG_USERSPACE=y OVERLAY_CONFIG="overlay-e1000.conf"
     platform_whitelist: qemu_x86
+  sample.net.sockets.echo_server.offload.simplelink:
+    platform_whitelist: cc3220sf_launchxl
+    tags: net socket offload simplelink
