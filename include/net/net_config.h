@@ -97,6 +97,21 @@ int net_config_init_by_iface(struct net_if *iface, const char *app_info,
 int net_config_init_app(const struct device *device, const char *app_info);
 
 /**
+ * @brief Notify network subsystem of a ready event.
+ *
+ * @details When net_config_init_app() is called, it would wait for various
+ *          functionalities to become ready. The system is aware of these
+ *          ready events when using the native network stack. However, when
+ *          using an offloaded stack, use this function to notify it of ready
+ *          functionalities.
+ *
+ * @param flags flags of ready functionalities.
+ *
+ * @return N/A
+ */
+void net_config_notify_ready(int flags);
+
+/**
  * @}
  */
 

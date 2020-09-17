@@ -484,6 +484,11 @@ int net_config_init_app(const struct device *dev, const char *app_info)
 	return ret;
 }
 
+void net_config_notify_ready(int flags)
+{
+	services_notify_ready(flags);
+}
+
 #if defined(CONFIG_NET_CONFIG_AUTO_INIT)
 static int init_app(const struct device *dev)
 {
