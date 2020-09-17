@@ -11,6 +11,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #include <kernel.h>
 #include <device.h>
 #include <net/net_if.h>
+#include <net/net_config.h>
 #include <net/wifi_mgmt.h>
 #include <net/net_offload.h>
 #ifdef CONFIG_NET_SOCKETS_OFFLOAD
@@ -72,6 +73,10 @@ static void simplelink_wifi_cb(uint32_t event, struct sl_connect_state *conn)
 		if ((simplelink_data.mask == 0) &&
 			(!simplelink_data.initialized)) {
 			simplelink_data.initialized = true;
+#if IS_ENABLED(CONFIG_NET_CONFIG_NEED_IPV4) && \
+	defined(CONFIG_NET_CONFIG_SETTINGS)
+			net_config_notify_ready(NET_CONFIG_NEED_IPV4);
+#endif
 			k_sem_give(&ip_acquired);
 		}
 		break;
@@ -81,6 +86,10 @@ static void simplelink_wifi_cb(uint32_t event, struct sl_connect_state *conn)
 		if ((simplelink_data.mask == 0) &&
 			(!simplelink_data.initialized)) {
 			simplelink_data.initialized = true;
+#if IS_ENABLED(CONFIG_NET_CONFIG_NEED_IPV6) && \
+	defined(CONFIG_NET_CONFIG_SETTINGS)
+			net_config_notify_ready(NET_CONFIG_NEED_IPV6);
+#endif
 			k_sem_give(&ip_acquired);
 		}
 		break;
