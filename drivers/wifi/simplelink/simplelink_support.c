@@ -141,48 +141,60 @@ static int32_t configure_simplelink(void)
 	ASSERT_ON_ERROR(retval, WLAN_ERROR);
 
 #if defined(CONFIG_NET_IPV4) && defined(CONFIG_NET_CONFIG_MY_IPV4_ADDR)
-	if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR, &addr4)
-			< 0) {
-		LOG_ERR("Invalid CONFIG_NET_CONFIG_MY_IPV4_ADDR");
-		return -1;
-	}
-	ipV4.Ip = (_u32)SL_IPV4_VAL(addr4.s4_addr[0],
-				    addr4.s4_addr[1],
-				    addr4.s4_addr[2],
-				    addr4.s4_addr[3]);
-
-#if defined(CONFIG_NET_CONFIG_MY_IPV4_GW)
-	if (strcmp(CONFIG_NET_CONFIG_MY_IPV4_GW, "") != 0) {
-		if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_GW,
+	if (strcmp(CONFIG_NET_CONFIG_MY_IPV4_ADDR, "") != 0) {
+		if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR,
 				  &addr4) < 0) {
-			LOG_ERR("Invalid CONFIG_NET_CONFIG_MY_IPV4_GW");
+			LOG_ERR("Invalid CONFIG_NET_CONFIG_MY_IPV4_ADDR");
 			return -1;
 		}
-		ipV4.IpGateway = (_u32)SL_IPV4_VAL(addr4.s4_addr[0],
-						   addr4.s4_addr[1],
-						   addr4.s4_addr[2],
-						   addr4.s4_addr[3]);
-	}
+		ipV4.Ip = (_u32)SL_IPV4_VAL(addr4.s4_addr[0],
+					    addr4.s4_addr[1],
+					    addr4.s4_addr[2],
+					    addr4.s4_addr[3]);
+
+#if defined(CONFIG_NET_CONFIG_MY_IPV4_GW)
+		if (strcmp(CONFIG_NET_CONFIG_MY_IPV4_GW, "") != 0) {
+			if (net_addr_pton(AF_INET,
+					  CONFIG_NET_CONFIG_MY_IPV4_GW,
+					  &addr4) < 0) {
+				LOG_ERR("Invalid "
+					"CONFIG_NET_CONFIG_MY_IPV4_GW");
+				return -1;
+			}
+			ipV4.IpGateway = (_u32)SL_IPV4_VAL(addr4.s4_addr[0],
+							   addr4.s4_addr[1],
+							   addr4.s4_addr[2],
+							   addr4.s4_addr[3]);
+		}
 #endif
 
 #if defined(CONFIG_NET_CONFIG_MY_IPV4_NETMASK)
-	if (strcmp(CONFIG_NET_CONFIG_MY_IPV4_NETMASK, "") != 0) {
-		if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_NETMASK,
-				  &addr4) < 0) {
-			LOG_ERR("Invalid CONFIG_NET_CONFIG_MY_IPV4_NETMASK");
-			return -1;
+		if (strcmp(CONFIG_NET_CONFIG_MY_IPV4_NETMASK, "") != 0) {
+			if (net_addr_pton(AF_INET,
+					  CONFIG_NET_CONFIG_MY_IPV4_NETMASK,
+					  &addr4) < 0) {
+				LOG_ERR("Invalid "
+					"CONFIG_NET_CONFIG_MY_IPV4_NETMASK");
+				return -1;
+			}
+			ipV4.IpMask = (_u32)SL_IPV4_VAL(addr4.s4_addr[0],
+							addr4.s4_addr[1],
+							addr4.s4_addr[2],
+							addr4.s4_addr[3]);
 		}
-		ipV4.IpMask = (_u32)SL_IPV4_VAL(addr4.s4_addr[0],
-						addr4.s4_addr[1],
-						addr4.s4_addr[2],
-						addr4.s4_addr[3]);
-	}
 #endif
 
-	retval = sl_NetCfgSet(SL_NETCFG_IPV4_STA_ADDR_MODE,
-			      SL_NETCFG_ADDR_STATIC,
-			      sizeof(SlNetCfgIpV4Args_t), (_u8 *)&ipV4);
-	ASSERT_ON_ERROR(retval, NETAPP_ERROR);
+		retval = sl_NetCfgSet(SL_NETCFG_IPV4_STA_ADDR_MODE,
+				      SL_NETCFG_ADDR_STATIC,
+				      sizeof(SlNetCfgIpV4Args_t),
+				      (_u8 *)&ipV4);
+		ASSERT_ON_ERROR(retval, NETAPP_ERROR);
+	} else {
+		/* enable DHCP client when IP address is empty */
+		retval = sl_NetCfgSet(SL_NETCFG_IPV4_STA_ADDR_MODE,
+				      SL_NETCFG_ADDR_DHCP, 0, 0);
+		ASSERT_ON_ERROR(retval, NETAPP_ERROR);
+	}
 #else
 	/* enable DHCP client */
 	retval = sl_NetCfgSet(SL_NETCFG_IPV4_STA_ADDR_MODE,
