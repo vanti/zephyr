@@ -17,7 +17,7 @@ int net_init_clock_via_sntp(void)
 	struct timespec tspec;
 	int res = sntp_simple(CONFIG_NET_CONFIG_SNTP_INIT_SERVER,
 			      CONFIG_NET_CONFIG_SNTP_INIT_TIMEOUT, &ts);
-
+	LOG_ERR("DONE sntp_simple %d", res);
 	if (res < 0) {
 		LOG_ERR("Cannot set time using SNTP");
 		return res;
